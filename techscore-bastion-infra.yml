@@ -1,0 +1,50 @@
+# Sets up a bastion host in public subnet to allow access to hosts in
+# private subnet
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Infrastructure for bastion hosts in public subnets'
+Resources:
+  # TODO: update the CidrIp
+  BastionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'Enable SSH from somewhere'
+      SecurityGroupIngress: []
+      VpcId: !ImportValue VpcId
+      Tags:
+        - Key: Name
+          Value: Bastion-SSH
+
+  BastionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'ec2.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess'
+
+  BastionInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref BastionRole
+
+Outputs:
+  BastionSecurityGroup:
+    Description: ID of the security group for the bastion to be edited for SSH
+    Value: !Ref BastionSecurityGroup
+    Export:
+      Name: BastionSecurityGroup
+
+  BastionInstanceProfile:
+    Description: Instance profile for bastion instances to assume
+    Value: !Ref BastionInstanceProfile
+    Export:
+      Name: BastionInstanceProfile

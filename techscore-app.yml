@@ -1,0 +1,119 @@
+# Techscore on AWS
+# Cobbled together using
+#
+#   - https://s3-us-east-2.amazonaws.com/cloudformation-templates-us-east-2/WordPress_Multi_AZ.template
+#   - https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html#w2ab2c21c10d874c19
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  OpenWeb Solution's Techscore application with RDS backing, load
+  balancers, public bucket and CloudFront distribution for scores and
+  even basion hosts
+
+Parameters:
+  OrgHostname:
+    Type: String
+    Description: |
+      Top-level domain name for organization (i.e. collegesailing.org). For the
+      public site, scores. will be prepended. For the private site, ts. instead.
+
+Resources:
+  # Private application setup
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+        - Fn::ImportValue: PublicSubnet1
+        - Fn::ImportValue: PublicSubnet2
+      Tags:
+        - Key: Name
+          Value: !Ref OrgHostname
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 10
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: !ImportValue VpcId
+      TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: true
+        - Key: stickiness.type
+          Value: lb_cookie
+        - Key: stickiness.lb_cookie.duration_seconds
+          Value: 30
+      Tags:
+        - Key: Name
+          Value: !Ref OrgHostname
+
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'Enable HTTP access via port 80 locked down to the load balancer'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt: [ApplicationLoadBalancer, SecurityGroups]
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !ImportValue BastionSecurityGroup
+      VpcId: !ImportValue VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub '${OrgHostname} - Web'
+
+  WebServerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'ec2.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess'
+        - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonSESFullAccess'
+
+  WebServerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref WebServerRole
+
+Outputs:
+  WebServerSecurityGroup:
+    Description: SG for web server(s)
+    Value: !Ref WebServerSecurityGroup
+    Export:
+      Name: WebServerSecurityGroup
+
+  WebServerInstanceProfile:
+    Description: Instance profile for webserver instances to assume
+    Value: !Ref WebServerInstanceProfile
+    Export:
+      Name: WebServerInstanceProfile

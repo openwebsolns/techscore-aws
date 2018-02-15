@@ -1,0 +1,86 @@
+# Techscore on AWS: Public scores site
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: S3 bucket for public scores and CloudFront distribution
+Parameters:
+  OrgHostname:
+    Type: String
+    Description: |
+      Top-level domain name for organization (i.e. collegesailing.org). For the
+      public site, scores. will be prepended. For the private site, ts. instead.
+
+  ScoresSubdomain:
+    Type: String
+    Description: Subdomain of OrgHostname for public site
+    Default: scores
+    AllowedPattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
+
+  ScoresCertificateArn:
+    Type: String
+    Description: ARN of certificate for the public site
+
+Resources:
+  Scores:
+    Type: AWS::S3::Bucket
+
+  CloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: To access scores bucket
+
+  CloudFrontAccessBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref Scores
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              CanonicalUser: !GetAtt [CloudFrontOriginAccessIdentity, S3CanonicalUserId]
+            Action: 's3:GetObject'
+            Resource:
+              Fn::Join:
+                - '/'
+                - - Fn::GetAtt: [Scores, Arn]
+                  - '*'
+
+  CFDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !GetAtt [Scores, DomainName]
+            Id: ScoresBucketOrigin
+            S3OriginConfig:
+              OriginAccessIdentity:
+                Fn::Sub: 'origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}'
+
+        Enabled: true
+        DefaultRootObject: index.html
+        Aliases:
+          - Fn::Sub: '${ScoresSubdomain}.${OrgHostname}'
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+          TargetOriginId: ScoresBucketOrigin
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          ViewerProtocolPolicy: 'redirect-to-https'
+          DefaultTTL: 30
+          MinTTL: 0
+          MaxTTL: 300
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn: !Ref ScoresCertificateArn
+          SslSupportMethod: sni-only
+
+Outputs:
+  ScoresBucketArn:
+    Description: ARN for the bucket where scores are uploaded.
+    Value: !GetAtt [Scores, Arn]
+    Export:
+      Name: ScoresBucketArn

@@ -1,0 +1,113 @@
+#!/bin/bash -e
+# Uses AWS magic to SSH to a webserver via a bastion host
+
+[[ -n "${verbose:-}" ]] && set -x
+
+KEY=${KEY="$HOME/.ssh/id_rsa"}
+PUBLIC_KEY_FILE=${PUBLIC_KEY_FILE:-"$KEY.pub"}
+SSM_PARAM=${SSH_PARAM:-"/SSH/publickey"}
+SSH_USER=${SSH_USER:-"ec2-user"}
+MY_IP=
+SECURITY_GROUP_ID=
+HOST=${HOST:-}
+
+# https://www.cyberciti.biz/faq/how-to-find-my-public-ip-address-from-command-line-on-a-linux/
+get-my-public-ip() {
+    dig +short myip.opendns.com @resolver1.opendns.com
+}
+
+get-cf-export-value() {
+    aws cloudformation list-exports --output text --query "Exports[?Name==\`$1\`].Value"
+}
+
+get-bastion-security-group() {
+    get-cf-export-value BastionSecurityGroup
+}
+
+get-bastion-instance-id() {
+    get-cf-export-value Bastion
+}
+
+get-bastion-ip() {
+    aws ec2 describe-instances --instance-id $(get-bastion-instance-id) --output text --query 'Reservations[0].Instances[0].NetworkInterfaces[0].Association.PublicIp'
+}
+
+allow-ssh() {
+    aws ec2 authorize-security-group-ingress \
+            --group-id "$SECURITY_GROUP_ID" \
+            --protocol tcp \
+            --port 22 \
+            --cidr "$MY_IP/32"
+}
+
+revoke-ssh() {
+    if [[ -n "$MY_IP" ]]; then
+        aws ec2 revoke-security-group-ingress \
+                --group-id "$SECURITY_GROUP_ID" \
+                --protocol tcp \
+                --port 22 \
+                --cidr "$MY_IP/32"
+    fi
+}
+
+add-my-public-key() {
+    aws ssm put-parameter \
+            --name "$SSM_PARAM" \
+            --type String \
+            --value "$(cat $PUBLIC_KEY_FILE)" \
+            --overwrite > /dev/null
+}
+
+perform-ssh() {
+    local opts=""
+    [[ -n "${verbose:-}" ]] && opts="-vvv"
+    ssh \
+        -o ProxyCommand="ssh $opts -W '%h:%p' $SSH_USER@$(get-bastion-ip)" \
+        -o User=$SSH_USER \
+        $opts \
+        -i "$KEY" \
+        $HOST \
+        $@
+}
+
+get-private-ips() {
+    aws ec2 describe-instances \
+        --filters \
+        Name=instance-state-name,Values=running \
+        Name=tag:Name,Values=WebServer \
+        --output text \
+        --query 'Reservations[*].Instances[*].NetworkInterfaces[*].PrivateIpAddress'
+}
+
+prompt-host() {
+    local ips=($(get-private-ips))
+    if [[ "${#ips[@]}" -eq 0 ]]; then
+        echo "No webservers exist."
+        exit 1
+    fi
+    if [[ "${#ips[@]}" -eq 1 ]]; then
+        HOST="${ips[0]}"
+        return
+    fi
+
+    echo
+    echo "Select host:"
+    echo
+    for ip in "${!ips[@]}"; do
+        echo "$i: ${ips[$i]}"
+    done
+    read -p '> ' HOST
+}
+
+execute() {
+    MY_IP=$(get-my-public-ip)
+    SECURITY_GROUP_ID=$(get-bastion-security-group)
+
+    prompt-host
+    add-my-public-key
+    allow-ssh || true
+    trap revoke-ssh EXIT
+    perform-ssh $@
+}
+
+execute $@

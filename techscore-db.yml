@@ -1,0 +1,56 @@
+# Techscore on AWS: DB setup
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  OpenWeb Solution's Techscore application with RDS backing.
+
+Parameters:
+  OrgHostname:
+    Type: String
+    Description: |
+      Top-level domain name for organization (i.e. collegesailing.org). For the
+      public site, scores. will be prepended. For the private site, ts. instead.
+
+Resources:
+  # RDS
+  DBEC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'Open database for access'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId : !ImportValue WebServerSecurityGroup
+      VpcId: !ImportValue VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub '${OrgHostname} - DB'
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets available to DB
+      SubnetIds:
+        - !ImportValue PrivateSubnet1
+        - !ImportValue PrivateSubnet2
+
+  DBCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      MasterUsername: techscore
+      MasterUserPassword: csail04sailor2
+      Engine: aurora-mysql
+      DBClusterParameterGroupName: default.aurora-mysql5.7
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VpcSecurityGroupIds:
+        - Ref: DBEC2SecurityGroup
+
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Engine: 'aurora-mysql'
+      DBClusterIdentifier: !Ref DBCluster
+      PubliclyAccessible: false
+      MultiAZ: false
+      DBInstanceClass: db.t2.small

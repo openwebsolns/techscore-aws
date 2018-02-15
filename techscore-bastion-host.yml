@@ -1,0 +1,86 @@
+# Sets up a bastion host in public subnet to allow access to hosts in
+# private subnet
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  Create a small EC2 host that can be turned on/off to allow access to
+  the other webservers in private subnets. The host uses SSM to fetch
+  the public key of the authenticating agent.
+
+Parameters:
+  KeyPair:
+    Type: String
+    Description: Fallback key pair to use
+    Default: ""
+
+Conditions: 
+  UseKeyPair: !Not [!Equals [!Ref KeyPair, ""]]
+
+Mappings:
+  RegionMap:
+    us-west-2:
+      AMI: 'ami-f2d3638a'
+
+Resources:
+  Bastion:
+    Type: AWS::EC2::Instance
+    Metadata:
+      Comment1: 'Configure instance to use SSM for public keys'
+      AWS::CloudFormation::Init:
+        configSets:
+          Install:
+            - InstallAuthorizedKeysCommand
+        InstallAuthorizedKeysCommand:
+          files:
+            '/usr/local/bin/ssm-public-key.sh':
+              content:
+                Fn::Sub: |
+                  #!/bin/bash -xe
+                  aws --region ${AWS::Region} ssm get-parameter --name /SSH/publickey --output text --query Parameter.Value
+              mode: '000555'
+          commands:
+            modifyConfig:
+              command: |
+                echo >> /etc/ssh/sshd_config
+                echo 'AuthorizedKeysCommand /usr/local/bin/ssm-public-key.sh' >> /etc/ssh/sshd_config
+                echo 'AuthorizedKeysCommandUser ec2-user' >> /etc/ssh/sshd_config
+            restartSsh:
+              command: '/etc/init.d/sshd restart'
+
+    Properties:
+      ImageId:
+        Fn::FindInMap:
+          - RegionMap
+          - Ref: AWS::Region
+          - AMI
+      IamInstanceProfile: !ImportValue BastionInstanceProfile
+      InstanceType: t2.nano
+      KeyName:
+        Fn::If:
+          - UseKeyPair
+          - Ref: KeyPair
+          - Ref: AWS::NoValue
+      SubnetId: !ImportValue PublicSubnet1
+      SecurityGroupIds:
+        - !ImportValue BastionSecurityGroup
+      Tags:
+        - Key: Name
+          Value: Bastion
+      UserData:
+        Fn::Base64:
+          Fn::Sub: |
+            #!/bin/bash -xe
+            yum update -y
+            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource Bastion --configsets Install --region ${AWS::Region}
+
+  BastionIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref Bastion
+
+Outputs:
+  Bastion:
+    Description: Instance ID of the bastion host.
+    Value: !Ref Bastion
+    Export:
+      Name: Bastion
