@@ -9,6 +9,17 @@ Parameters:
     Description: Fallback key pair to use
     Default: ""
 
+  DBUsername:
+    Type: String
+    Description: Master username
+    Default: techscore
+
+  DBPassword:
+    Type: String
+    Description: Master password
+    Default: csail04sailor2
+    NoEcho: true
+
 Conditions: 
   UseKeyPair: !Not [!Equals [!Ref KeyPair, ""]]
 
@@ -28,6 +39,7 @@ Resources:
             - CloudInitSetup
             - InstallAuthorizedKeysCommand
             - SetupWebServer
+            - SetupTools
 
         CloudInitSetup:
           files:
@@ -103,12 +115,12 @@ Resources:
           commands:
             100createSessionsDir:
               command: |
-                mkdir /etc/httpd/sessions
+                mkdir -p /etc/httpd/sessions
                 chown apache:apache /etc/httpd/sessions
                 chmod 770 /etc/httpd/sessions
 
             200createSitesDir:
-              command: mkdir /etc/httpd/sites
+              command: mkdir -p /etc/httpd/sites
 
             900restartApache:
               command: /etc/init.d/httpd restart
@@ -116,6 +128,23 @@ Resources:
             techscore:
               groups:
                 - wheel
+
+        SetupTools:
+          packages:
+            yum:
+              mysql: []
+          files:
+            '/usr/local/bin/mysql-connect':
+              content:
+                Fn::Sub:
+                  - |
+                    #!/bin/bash
+                    mysql -u${DBUsername} -p'${DBPassword}' -h ${DBHost} $@
+                  - DBUsername: !Ref DBUsername
+                    DBPassword: !Ref DBPassword
+                    DBHost: !ImportValue DBHost
+              mode: '000755'
+              owner: root
     Properties:
       ImageId:
         Fn::FindInMap:

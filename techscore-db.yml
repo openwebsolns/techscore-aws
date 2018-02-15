@@ -11,6 +11,17 @@ Parameters:
       Top-level domain name for organization (i.e. collegesailing.org). For the
       public site, scores. will be prepended. For the private site, ts. instead.
 
+  DBUsername:
+    Type: String
+    Description: Master username
+    Default: techscore
+
+  DBPassword:
+    Type: String
+    Description: Master password
+    Default: csail04sailor2
+    NoEcho: true
+
 Resources:
   # RDS
   DBEC2SecurityGroup:
@@ -38,19 +49,35 @@ Resources:
   DBCluster:
     Type: AWS::RDS::DBCluster
     Properties:
-      MasterUsername: techscore
-      MasterUserPassword: csail04sailor2
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
       Engine: aurora-mysql
       DBClusterParameterGroupName: default.aurora-mysql5.7
       DBSubnetGroupName: !Ref DBSubnetGroup
       VpcSecurityGroupIds:
         - Ref: DBEC2SecurityGroup
 
+  DBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: Enables log_bin_trust_function_creators to allow mysqldump
+      Family: aurora-mysql5.7
+      Parameters:
+        log_bin_trust_function_creators: 1
+
   DBInstance:
     Type: AWS::RDS::DBInstance
     Properties:
       Engine: 'aurora-mysql'
       DBClusterIdentifier: !Ref DBCluster
+      DBParameterGroupName: !Ref DBParameterGroup
       PubliclyAccessible: false
       MultiAZ: false
       DBInstanceClass: db.t2.small
+
+Outputs:
+  DBHost:
+    Description: Host for the DB instance
+    Value: !GetAtt [DBInstance, Endpoint.Address]
+    Export:
+      Name: DBHost

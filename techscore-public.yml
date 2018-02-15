@@ -22,39 +22,32 @@ Parameters:
 Resources:
   Scores:
     Type: AWS::S3::Bucket
-
-  CloudFrontOriginAccessIdentity:
-    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
     Properties:
-      CloudFrontOriginAccessIdentityConfig:
-        Comment: To access scores bucket
+      WebsiteConfiguration:
+        ErrorDocument: 404.html
+        IndexDocument: index.html
 
-  CloudFrontAccessBucketPolicy:
+  PublicBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
       Bucket: !Ref Scores
       PolicyDocument:
         Statement:
           - Effect: Allow
-            Principal:
-              CanonicalUser: !GetAtt [CloudFrontOriginAccessIdentity, S3CanonicalUserId]
+            Principal: '*'
             Action: 's3:GetObject'
-            Resource:
-              Fn::Join:
-                - '/'
-                - - Fn::GetAtt: [Scores, Arn]
-                  - '*'
+            Resource: !Sub '${Scores.Arn}/*'
 
   CFDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
         Origins:
-          - DomainName: !GetAtt [Scores, DomainName]
+          - DomainName: !Select [2, !Split ['/', !GetAtt [Scores, WebsiteURL]]]
             Id: ScoresBucketOrigin
-            S3OriginConfig:
-              OriginAccessIdentity:
-                Fn::Sub: 'origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}'
+            CustomOriginConfig:
+              HTTPPort: 80
+              OriginProtocolPolicy: http-only
 
         Enabled: true
         DefaultRootObject: index.html

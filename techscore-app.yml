@@ -17,7 +17,37 @@ Parameters:
       Top-level domain name for organization (i.e. collegesailing.org). For the
       public site, scores. will be prepended. For the private site, ts. instead.
 
+  AppSubdomain:
+    Type: String
+    Description: Subdomain of OrgHostname for the private site
+    Default: ts
+    AllowedPattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
+
 Resources:
+  AppCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName:
+        Fn::Sub: '${AppSubdomain}.${OrgHostname}'
+      DomainValidationOptions:
+        - DomainName:
+            Fn::Sub: '${AppSubdomain}.${OrgHostname}'
+          ValidationDomain: !Ref OrgHostname
+
+  ApplicationLoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allows (good) HTTP/S traffic from anywhere
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      VpcId: !ImportValue VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub '${OrgHostname} - LB'
+
   # Private application setup
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -25,6 +55,8 @@ Resources:
       Subnets:
         - Fn::ImportValue: PublicSubnet1
         - Fn::ImportValue: PublicSubnet2
+      SecurityGroups:
+        - !Ref ApplicationLoadBalancerSecurityGroup
       Tags:
         - Key: Name
           Value: !Ref OrgHostname
@@ -36,8 +68,11 @@ Resources:
         - Type: forward
           TargetGroupArn: !Ref ALBTargetGroup
       LoadBalancerArn: !Ref ApplicationLoadBalancer
-      Port: 80
-      Protocol: HTTP
+      Port: 443
+      Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-2016-08
+      Certificates:
+        - CertificateArn: !Ref AppCertificate
 
   ALBTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup

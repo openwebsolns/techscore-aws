@@ -1,4 +1,5 @@
-# Techscore on AWS: Certificate requests
+# Techscore on AWS: Certificate request for public site, which MUST BE
+# RUN against us-east-1
 ---
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Certificates for public and private site
@@ -15,12 +16,6 @@ Parameters:
     Default: scores
     AllowedPattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
 
-  AppSubdomain:
-    Type: String
-    Description: Subdomain of OrgHostname for the private site
-    Default: ts
-    AllowedPattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
-
 Resources:
   ScoresCertificate:
     Type: AWS::CertificateManager::Certificate
@@ -32,25 +27,9 @@ Resources:
             Fn::Sub: '${ScoresSubdomain}.${OrgHostname}'
           ValidationDomain: !Ref OrgHostname
 
-  AppCertificate:
-    Type: AWS::CertificateManager::Certificate
-    Properties:
-      DomainName:
-        Fn::Sub: '${AppSubdomain}.${OrgHostname}'
-      DomainValidationOptions:
-        - DomainName:
-            Fn::Sub: '${AppSubdomain}.${OrgHostname}'
-          ValidationDomain: !Ref OrgHostname
-
 Outputs:
   ScoresCertificateArn:
     Description: ARN for the created certificate for scores domain.
     Value: !Ref ScoresCertificate
     Export:
       Name: ScoresCertificateArn
-
-  AppCertificateArn:
-    Description: ARN for the created certificate for app domain.
-    Value: !Ref AppCertificate
-    Export:
-      Name: AppCertificateArn

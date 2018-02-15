@@ -1,0 +1,19 @@
+# Techscore on AWS: Certificate for APP. Must be run from the same
+# region as the other templates!
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Certificates for private site
+Parameters:
+  OrgHostname:
+    Type: String
+    Description: |
+      Top-level domain name for organization (i.e. collegesailing.org). For the
+      public site, scores. will be prepended. For the private site, ts. instead.
+
+Resources:
+Outputs:
+  AppCertificateArn:
+    Description: ARN for the created certificate for app domain.
+    Value: !Ref AppCertificate
+    Export:
+      Name: AppCertificateArn

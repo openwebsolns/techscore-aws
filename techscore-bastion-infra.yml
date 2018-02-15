@@ -4,7 +4,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'Infrastructure for bastion hosts in public subnets'
 Resources:
-  # TODO: update the CidrIp
   BastionSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
