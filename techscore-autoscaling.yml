@@ -57,6 +57,7 @@ Resources:
           Install:
             - CloudInitSetup
             - InstallAuthorizedKeysCommand
+            - CodeDeploy
             - SetupWebServer
             - SetupTools
 
@@ -109,6 +110,24 @@ Resources:
                 echo 'AuthorizedKeysCommandUser ec2-user' >> /etc/ssh/sshd_config
             restartSsh:
               command: '/etc/init.d/sshd restart'
+
+        CodeDeploy:
+          packages:
+            yum:
+              ruby: []
+              wget: []
+          commands:
+            installCodeDeploy:
+              command:
+                Fn::Sub: |
+                  wget -O /tmp/cdinstall https://aws-codedeploy-${AWS::Region}.s3.amazonaws.com/latest/install
+                  chmod +x /tmp/cdinstall
+                  /tmp/cdinstall auto
+          services:
+            sysvinit:
+              codedeploy-agent:
+                enabled: true
+                ensureRunning: true
 
         SetupWebServer:
           packages:
