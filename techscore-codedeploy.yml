@@ -1,0 +1,39 @@
+# AWS CodeDeploy configurations for Techscore
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates CodeDeploy resources'
+
+Parameters:
+  OrgHostname:
+    Type: String
+    Description: |
+      Top-level domain name for organization (i.e. collegesailing.org). For the
+      public site, scores. will be prepended. For the private site, ts. instead.
+
+Resources:
+  CodeDeployServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'codedeploy.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole'
+
+  CodeDeployApp:
+    Type: AWS::CodeDeploy::Application
+
+  CodeDeploymentGroup:
+    Type: AWS::CodeDeploy::DeploymentGroup
+    Properties:
+      ApplicationName: !Ref CodeDeployApp
+      AutoScalingGroups:
+        - !ImportValue WebServerAutoScalingGroup
+      DeploymentConfigName: CodeDeployDefault.OneAtATime
+      ServiceRoleArn: !GetAtt [CodeDeployServiceRole, Arn]

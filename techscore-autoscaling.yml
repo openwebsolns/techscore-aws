@@ -204,3 +204,10 @@ Resources:
             #!/bin/bash -xe
             yum update -y
             /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource WebServerLaunchConfig --configsets Install --region ${AWS::Region}
+
+Outputs:
+  WebServerAutoScalingGroup:
+    Value: !Ref WebServerAutoScalingGroup
+    Description: Name of the auto scaling group created
+    Export:
+      Name: WebServerAutoScalingGroup
