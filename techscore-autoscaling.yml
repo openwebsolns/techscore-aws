@@ -1,0 +1,187 @@
+# Techscore webserver(s) running Apache, PHP and connecting to MySQL
+# For a single server, see techscore-server.yml
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates AutoScaling launching into private subnet'
+
+Parameters:
+  KeyPair:
+    Type: String
+    Description: Fallback key pair to use
+    Default: ""
+
+  DBUsername:
+    Type: String
+    Description: Master username
+    Default: techscore
+
+  DBPassword:
+    Type: String
+    Description: Master password
+    Default: csail04sailor2
+    NoEcho: true
+
+Conditions: 
+  UseKeyPair: !Not [!Equals [!Ref KeyPair, ""]]
+
+Mappings:
+  RegionMap:
+    us-west-2:
+      AMI: 'ami-f2d3638a'
+
+Resources:
+  WebServerAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - !ImportValue PrivateSubnet1
+        - !ImportValue PrivateSubnet2
+      LaunchConfigurationName: !Ref WebServerLaunchConfig
+      MinSize: 1
+      MaxSize: 1
+      DesiredCapacity: 1
+      HealthCheckType: EC2
+      TargetGroupARNs:
+        - !ImportValue ALBTargetGroup
+      Tags:
+        - Key: Name
+          Value: WebServer
+          PropagateAtLaunch: true
+
+  WebServerLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Metadata:
+      Comment1: 'Configure instance to use SSM for public keys'
+      AWS::CloudFormation::Init:
+        configSets:
+          Install:
+            - CloudInitSetup
+            - InstallAuthorizedKeysCommand
+            - SetupWebServer
+            - SetupTools
+
+        CloudInitSetup:
+          files:
+            '/etc/cfn/cfn-hup.conf':
+              content:
+                Fn::Sub: |
+                  [main]
+                  stack=${AWS::StackId}
+                  region=${AWS::Region}
+                  verbose=true
+              mode: '000400'
+              owner: root
+              group: root
+            '/etc/cfn/hooks.d/cfn-auto-reloader.conf':
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers=post.update
+                path=Resources.WebServerLaunchConfig.Metadata.AWS::CloudFormation::Init
+                action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource WebServerLaunchConfig --configsets Install --region ${AWS::Region}
+                runas=root
+              mode: '000400'
+              owner: root
+              group: root
+
+          services:
+            sysvinit:
+              cfn-hup:
+                enabled: true
+                ensureRunning: true
+                files:
+                  - /etc/cfn/cfn-hup.conf
+                sources:
+                  - /etc/cfn/hooks.d
+
+        InstallAuthorizedKeysCommand:
+          files:
+            '/usr/local/bin/ssm-public-key.sh':
+              content:
+                Fn::Sub: |
+                  #!/bin/bash -xe
+                  aws --region ${AWS::Region} ssm get-parameter --name /SSH/publickey --output text --query Parameter.Value
+              mode: '000555'
+          commands:
+            modifyConfig:
+              command: |
+                echo >> /etc/ssh/sshd_config
+                echo 'AuthorizedKeysCommand /usr/local/bin/ssm-public-key.sh' >> /etc/ssh/sshd_config
+                echo 'AuthorizedKeysCommandUser ec2-user' >> /etc/ssh/sshd_config
+            restartSsh:
+              command: '/etc/init.d/sshd restart'
+
+        SetupWebServer:
+          packages:
+            yum:
+              php54: []
+              php54-mysqlnd: []
+              php54-mbstring: []
+              php54-common: []
+              php54-cli: []
+              php54-xml: []
+              php54-pdo: []
+              php54-process: []
+              git: []
+          files:
+            '/etc/httpd/conf.d/ows-sites.conf':
+              content: |
+                <Directory /srv>
+                  Require all granted
+                </Directory>
+                IncludeOptional sites/*.conf
+              mode: '000644'
+
+          commands:
+            100createSessionsDir:
+              command: |
+                mkdir -p /etc/httpd/sessions
+                chown apache:apache /etc/httpd/sessions
+                chmod 770 /etc/httpd/sessions
+
+            200createSitesDir:
+              command: mkdir -p /etc/httpd/sites
+
+            900restartApache:
+              command: /etc/init.d/httpd restart
+          users:
+            techscore:
+              groups:
+                - wheel
+
+        SetupTools:
+          packages:
+            yum:
+              mysql: []
+          files:
+            '/usr/local/bin/mysql-connect':
+              content:
+                Fn::Sub:
+                  - |
+                    #!/bin/bash
+                    mysql -u${DBUsername} -p'${DBPassword}' -h ${DBHost} $@
+                  - DBUsername: !Ref DBUsername
+                    DBPassword: !Ref DBPassword
+                    DBHost: !ImportValue DBHost
+              mode: '000755'
+              owner: root
+    Properties:
+      ImageId:
+        Fn::FindInMap:
+          - RegionMap
+          - Ref: AWS::Region
+          - AMI
+      IamInstanceProfile: !ImportValue WebServerInstanceProfile
+      InstanceType: t2.medium
+      KeyName:
+        Fn::If:
+          - UseKeyPair
+          - Ref: KeyPair
+          - Ref: AWS::NoValue
+      SecurityGroups:
+        - !ImportValue WebServerSecurityGroup
+      UserData:
+        Fn::Base64:
+          Fn::Sub: |
+            #!/bin/bash -xe
+            yum update -y
+            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource WebServerLaunchConfig --configsets Install --region ${AWS::Region}

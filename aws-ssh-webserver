@@ -93,7 +93,7 @@ prompt-host() {
     echo
     echo "Select host:"
     echo
-    for ip in "${!ips[@]}"; do
+    for i in "${!ips[@]}"; do
         echo "$i: ${ips[$i]}"
     done
     read -p '> ' HOST
