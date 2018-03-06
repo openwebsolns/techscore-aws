@@ -1,0 +1,25 @@
+#!/bin/bash -e
+# Use CloudFront to discover application name and push there
+
+[[ -n "${verbose:-}" ]] && set -x
+
+APP_BUCKET="techscore-app.openweb"
+APP_KEY="codedeploy/Techscore.zip"
+
+get-app-name() {
+    aws cloudformation list-exports --output text --query 'Exports[?Name==`CodeDeployApp`].Value'
+}
+
+get-my-dir() {
+    cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd
+}
+
+execute() {
+    cd $(get-my-dir)/techscore
+    aws deploy push \
+        --application-name=$(get-app-name) \
+        --s3-location s3://$APP_BUCKET/$APP_KEY \
+        --ignore-hidden-files
+}
+
+(execute)
