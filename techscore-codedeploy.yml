@@ -37,3 +37,16 @@ Resources:
         - !ImportValue WebServerAutoScalingGroup
       DeploymentConfigName: CodeDeployDefault.OneAtATime
       ServiceRoleArn: !GetAtt [CodeDeployServiceRole, Arn]
+
+Outputs:
+  CodeDeployApp:
+    Description: Name of the Techscore App in CodeDeploy
+    Value: !Ref CodeDeployApp
+    Export:
+      Name: CodeDeployApp
+
+  CodeDeploymentGroup:
+    Description: Name of the CodeDeployment group
+    Value: !Ref CodeDeploymentGroup
+    Export:
+      Name: CodeDeploymentGroup
