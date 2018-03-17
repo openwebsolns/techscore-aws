@@ -10,6 +10,7 @@ SSH_USER=${SSH_USER:-"ec2-user"}
 MY_IP=
 SECURITY_GROUP_ID=
 HOST=${HOST:-}
+BASTION_ID=
 
 # https://www.cyberciti.biz/faq/how-to-find-my-public-ip-address-from-command-line-on-a-linux/
 get-my-public-ip() {
@@ -25,11 +26,20 @@ get-bastion-security-group() {
 }
 
 get-bastion-instance-id() {
-    get-cf-export-value Bastion
+    [[ -n "$BASTION_ID" ]] || BASTION_ID=$(get-cf-export-value Bastion)
+    echo $BASTION_ID
 }
 
 get-bastion-ip() {
     aws ec2 describe-instances --instance-id $(get-bastion-instance-id) --output text --query 'Reservations[0].Instances[0].NetworkInterfaces[0].Association.PublicIp'
+}
+
+get-bastion-state() {
+    aws ec2 describe-instances --instance-id $(get-bastion-instance-id) --output text --query 'Reservations[].Instances[].State.Name'
+}
+
+get-bastion-instance-status() {
+    aws ec2 describe-instance-status --instance-id $(get-bastion-instance-id) --output text --query 'InstanceStatuses[].InstanceStatus.Status'
 }
 
 allow-ssh() {
@@ -58,7 +68,17 @@ add-my-public-key() {
             --overwrite > /dev/null
 }
 
+wait-for-running-bastion() {
+    while true; do
+        [[ "$(get-bastion-instance-status)" == 'ok' ]] && break
+        >&2 echo "Waiting for bastion to wake up"
+        sleep 3
+    done
+}
+
 perform-ssh() {
+    wait-for-running-bastion
+
     local opts=""
     [[ -n "${verbose:-}" ]] && opts="-vvv"
     ssh \
@@ -99,10 +119,17 @@ prompt-host() {
     read -p '> ' HOST
 }
 
+start-bastion-if-stopped() {
+    if [[ "$(get-bastion-state)" == 'stopped' ]]; then
+        aws ec2 start-instances --instance-id $(get-bastion-instance-id)
+    fi
+}
+
 execute() {
     MY_IP=$(get-my-public-ip)
     SECURITY_GROUP_ID=$(get-bastion-security-group)
 
+    start-bastion-if-stopped
     prompt-host
     add-my-public-key
     allow-ssh || true
