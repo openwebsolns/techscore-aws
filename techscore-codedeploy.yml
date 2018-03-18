@@ -38,6 +38,9 @@ Resources:
       DeploymentConfigName: CodeDeployDefault.OneAtATime
       ServiceRoleArn: !GetAtt [CodeDeployServiceRole, Arn]
 
+  CodeBucket:
+    Type: AWS::S3::Bucket
+
 Outputs:
   CodeDeployApp:
     Description: Name of the Techscore App in CodeDeploy
@@ -50,3 +53,9 @@ Outputs:
     Value: !Ref CodeDeploymentGroup
     Export:
       Name: CodeDeploymentGroup
+
+  CodeBucket:
+    Description: Bucket to use for CodeDeploy data
+    Value: !Ref CodeBucket
+    Export:
+      Name: CodeBucket

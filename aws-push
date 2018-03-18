@@ -3,11 +3,18 @@
 
 [[ -n "${verbose:-}" ]] && set -x
 
-APP_BUCKET="techscore-app.openweb"
 APP_KEY="codedeploy/Techscore.zip"
 
+get-cf-export-value() {
+    aws cloudformation list-exports --output text --query "Exports[?Name==\`$1\`].Value"
+}
+
 get-app-name() {
-    aws cloudformation list-exports --output text --query 'Exports[?Name==`CodeDeployApp`].Value'
+    get-cf-export-value CodeDeployApp
+}
+
+get-code-bucket() {
+    get-cf-export-value CodeBucket
 }
 
 get-my-dir() {
@@ -18,7 +25,7 @@ execute() {
     cd $(get-my-dir)/techscore
     aws deploy push \
         --application-name=$(get-app-name) \
-        --s3-location s3://$APP_BUCKET/$APP_KEY \
+        --s3-location s3://$(get-code-bucket)/$APP_KEY \
         --ignore-hidden-files
 }
 

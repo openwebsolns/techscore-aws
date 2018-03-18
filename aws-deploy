@@ -1,7 +1,7 @@
 #!/bin/bash
 
-APP_BUCKET="techscore-app.openweb"
 APP_KEY="codedeploy/Techscore.zip"
+APP_BUCKET=
 
 get-cf-export-value() {
     aws cloudformation list-exports --output text --query "Exports[?Name==\`$1\`].Value"
@@ -15,14 +15,21 @@ get-deployment-group() {
     get-cf-export-value CodeDeploymentGroup
 }
 
+get-code-bucket() {
+    if [[ -z "$APP_BUCKET" ]]; then
+        APP_BUCKET=$(get-cf-export-value CodeBucket)
+    fi
+    echo $APP_BUCKET
+}
+
 get-md5sum() {
-    aws s3api head-object --bucket $APP_BUCKET --key $APP_KEY --output text --query ETag | tr -d '"'
+    aws s3api head-object --bucket $(get-code-bucket) --key $APP_KEY --output text --query ETag | tr -d '"'
 }
 
 execute() {
     aws deploy create-deployment \
         --application-name $(get-app-name) \
-        --s3-location bucket=$APP_BUCKET,key=$APP_KEY,bundleType=zip,eTag=$(get-md5sum) \
+        --s3-location bucket=$(get-code-bucket),key=$APP_KEY,bundleType=zip,eTag=$(get-md5sum) \
         --deployment-group-name $(get-deployment-group)
 }
 

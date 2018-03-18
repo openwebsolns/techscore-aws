@@ -66,6 +66,12 @@ populate-params() {
             )
             ;;
 
+        bastion-host)
+            if [[ -n "$KEYPAIR" ]]; then
+                PARAMS=(--parameters "ParameterKey=KeyPair,ParameterValue=$KEYPAIR")
+            fi
+            ;;
+
         *)
             usage "Unknown template: $1"
             ;;
@@ -73,13 +79,17 @@ populate-params() {
 }
 
 cloudformation-verb() {
-    echo "create-stack"
+    if aws ${AWS_ARGS[@]} cloudformation describe-stacks --stack-name $1 > /dev/null 2>&1; then
+        echo "update-stack"
+    else
+        echo "create-stack"
+    fi
 }
 
 execute() {
     populate-params $1
     aws ${AWS_ARGS[@]} \
-        cloudformation $(cloudformation-verb) \
+        cloudformation $(cloudformation-verb $1) \
         --stack-name $1 \
         --template-body file://techscore-$1.yml \
         ${PARAMS[@]}
