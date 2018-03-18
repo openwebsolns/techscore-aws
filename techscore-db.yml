@@ -75,9 +75,26 @@ Resources:
       MultiAZ: false
       DBInstanceClass: db.t2.small
 
+  SqlBackup:
+    Type: AWS::S3::Bucket
+    Properties:
+      LifecycleConfiguration:
+        Rules:
+          - ExpirationInDays: 365
+            Status: Enabled
+            Transitions:
+              - StorageClass: GLACIER
+                TransitionInDays: 45
+
 Outputs:
   DBHost:
     Description: Host for the DB instance
     Value: !GetAtt [DBInstance, Endpoint.Address]
     Export:
       Name: DBHost
+
+  SqlBackup:
+    Description: Bucket to store DB backups
+    Value: !Ref SqlBackup
+    Export:
+      Name: SqlBackupBucket

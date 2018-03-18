@@ -21,6 +21,11 @@ Parameters:
     Default: csail04sailor2
     NoEcho: true
 
+  DBName:
+    Type: String
+    Description: Name of the database
+    Default: techscore
+
 Conditions: 
   UseKeyPair: !Not [!Equals [!Ref KeyPair, ""]]
 
@@ -183,6 +188,24 @@ Resources:
                     DBHost: !ImportValue DBHost
               mode: '000755'
               owner: root
+
+            '/etc/cron.daily/mysql-backup':
+              content:
+                Fn::Sub:
+                  - |
+                    #!/bin/bash
+                    year=$(date +%F)
+                    month=$(date +%m)
+                    day=$(date +%d)
+                    mysqldump -u${DBUsername} -p'${DBPassword}' -h ${DBHost} ${DBName} | bzip2 | aws s3 cp - s3://${SqlBackupBucket}/$year/$month/$day.sql.bz2
+                  - DBUsername: !Ref DBUsername
+                    DBPassword: !Ref DBPassword
+                    DBName: !Ref DBName
+                    DBHost: !ImportValue DBHost
+                    SqlBackupBucket: !ImportValue SqlBackupBucket
+              mode: '000755'
+              owner: root
+
     Properties:
       ImageId:
         Fn::FindInMap:
