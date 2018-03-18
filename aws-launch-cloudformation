@@ -7,13 +7,15 @@ usage() {
     exit 1
 }
 
+CONFIG=cloudformation.config
+
 [[ -n "$verbose" ]] && set -x
 [[ -n "$AWS_PROFILE" ]] || usage "No AWS_PROFILE setup."
+[[ -f "$CONFIG" ]] || usage "No '$CONFIG' file found."
 
-ORG_HOSTNAME=collegesailing.org
+source $CONFIG
 PARAMS=
 AWS_ARGS=
-CFN_ARGS=
 
 # Order below is recommended execution order
 populate-params() {
@@ -28,16 +30,40 @@ populate-params() {
             ;;
 
         bastion-infra)
-            CFN_ARGS=(--capabilities CAPABILITY_IAM)
+            PARAMS=(--capabilities CAPABILITY_IAM)
             ;;
 
         app)
-            PARAMS=(--parameters "ParameterKey=OrgHostname,ParameterValue=$ORG_HOSTNAME")
-            CFN_ARGS=(--capabilities CAPABILITY_IAM)
+            PARAMS=(
+                --parameters "ParameterKey=OrgHostname,ParameterValue=$ORG_HOSTNAME"
+                --capabilities CAPABILITY_IAM
+            )
+            ;;
+
+        public)
+            local certArn=$(aws --region=us-east-1 cloudformation list-exports --output text --query "Exports[?Name==\`ScoresCertificateArn\`].Value")
+            PARAMS=(
+                --parameters
+                "ParameterKey=OrgHostname,ParameterValue=$ORG_HOSTNAME"
+                "ParameterKey=ScoresCertificateArn,ParameterValue=$certArn"
+            )
             ;;
 
         db)
             PARAMS=(--parameters "ParameterKey=OrgHostname,ParameterValue=$ORG_HOSTNAME")
+            ;;
+
+        autoscaling)
+            if [[ -n "$KEYPAIR" ]]; then
+                PARAMS=(--parameters "ParameterKey=KeyPair,ParameterValue=$KEYPAIR")
+            fi
+            ;;
+
+        codedeploy)
+            PARAMS=(
+                --parameters "ParameterKey=OrgHostname,ParameterValue=$ORG_HOSTNAME"
+                --capabilities CAPABILITY_IAM
+            )
             ;;
 
         *)
@@ -56,8 +82,7 @@ execute() {
         cloudformation $(cloudformation-verb) \
         --stack-name $1 \
         --template-body file://techscore-$1.yml \
-        ${PARAMS[@]} \
-        ${CFN_ARGS[@]}
+        ${PARAMS[@]}
 }
 
 execute $@
