@@ -32,7 +32,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
-          SourceSecurityGroupId : !ImportValue WebServerSecurityGroup
+          SourceSecurityGroupId: !ImportValue WebServerSecurityGroup
       VpcId: !ImportValue VpcId
       Tags:
         - Key: Name

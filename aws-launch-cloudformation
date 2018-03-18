@@ -1,0 +1,63 @@
+#!/bin/bash -e
+#
+# Launch the Techscore application
+
+usage() {
+    >&2 echo ERROR: ${1:-unknown}
+    exit 1
+}
+
+[[ -n "$verbose" ]] && set -x
+[[ -n "$AWS_PROFILE" ]] || usage "No AWS_PROFILE setup."
+
+ORG_HOSTNAME=collegesailing.org
+PARAMS=
+AWS_ARGS=
+CFN_ARGS=
+
+# Order below is recommended execution order
+populate-params() {
+    case "$1" in
+        certificates)
+            PARAMS=(--parameters "ParameterKey=OrgHostname,ParameterValue=$ORG_HOSTNAME")
+            AWS_ARGS=("--region=us-east-1")
+            ;;
+
+        vpc)
+            PARAMS=(--parameters "ParameterKey=OrgHostname,ParameterValue=$ORG_HOSTNAME")
+            ;;
+
+        bastion-infra)
+            CFN_ARGS=(--capabilities CAPABILITY_IAM)
+            ;;
+
+        app)
+            PARAMS=(--parameters "ParameterKey=OrgHostname,ParameterValue=$ORG_HOSTNAME")
+            CFN_ARGS=(--capabilities CAPABILITY_IAM)
+            ;;
+
+        db)
+            PARAMS=(--parameters "ParameterKey=OrgHostname,ParameterValue=$ORG_HOSTNAME")
+            ;;
+
+        *)
+            usage "Unknown template: $1"
+            ;;
+    esac
+}
+
+cloudformation-verb() {
+    echo "create-stack"
+}
+
+execute() {
+    populate-params $1
+    aws ${AWS_ARGS[@]} \
+        cloudformation $(cloudformation-verb) \
+        --stack-name $1 \
+        --template-body file://techscore-$1.yml \
+        ${PARAMS[@]} \
+        ${CFN_ARGS[@]}
+}
+
+execute $@

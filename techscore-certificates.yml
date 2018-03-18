@@ -2,7 +2,7 @@
 # RUN against us-east-1
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Certificates for public and private site
+Description: Certificates for public site
 Parameters:
   OrgHostname:
     Type: String
