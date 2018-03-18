@@ -1,0 +1,31 @@
+#!/bin/bash -e
+# Stops the bastion host for cost-savings
+
+[[ -n "${verbose:-}" ]] && set -x
+
+get-cf-export-value() {
+    aws cloudformation list-exports --output text --query "Exports[?Name==\`$1\`].Value"
+}
+
+get-bastion-security-group() {
+    get-cf-export-value BastionSecurityGroup
+}
+
+get-bastion-instance-id() {
+    get-cf-export-value Bastion
+}
+
+clean-security-group() {
+    echo Not yet supported
+}
+
+stop-bastion() {
+    aws ec2 stop-instances --instance-ids $(get-bastion-instance-id)
+}
+
+execute() {
+    stop-bastion
+    clean-security-group
+}
+
+execute
