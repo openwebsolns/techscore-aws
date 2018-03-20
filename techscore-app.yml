@@ -158,3 +158,9 @@ Outputs:
     Value: !Ref ALBTargetGroup
     Export:
       Name: ALBTargetGroup
+
+  LoadBalancerDnsName:
+    Description: DNS name of the application load balancer
+    Value: !GetAtt [ApplicationLoadBalancer, DNSName]
+    Export:
+      Name: LoadBalancerDnsName
