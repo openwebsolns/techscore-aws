@@ -64,6 +64,7 @@ Resources:
       Family: aurora-mysql5.7
       Parameters:
         log_bin_trust_function_creators: 1
+        explicit_defaults_for_timestamp: 0
 
   DBInstance:
     Type: AWS::RDS::DBInstance
