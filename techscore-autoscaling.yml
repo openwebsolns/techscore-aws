@@ -169,6 +169,8 @@ Resources:
               command: /etc/init.d/httpd restart
           users:
             techscore:
+              homedir: /srv/techscore
+              no_create_home: true
               groups:
                 - wheel
 
