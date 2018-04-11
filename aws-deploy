@@ -1,5 +1,8 @@
 #!/bin/bash
 
+[[ -n "$verbose" ]] && set -x
+[[ -n "$AWS_PROFILE" ]] || (echo "No AWS_PROFILE setup." && exit 1)
+
 APP_KEY="codedeploy/Techscore.zip"
 APP_BUCKET=
 

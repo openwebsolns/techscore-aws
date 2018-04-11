@@ -2,6 +2,7 @@
 # Use CloudFront to discover application name and push there
 
 [[ -n "${verbose:-}" ]] && set -x
+[[ -n "$AWS_PROFILE" ]] || (echo "No AWS_PROFILE setup." && exit 1)
 
 APP_KEY="codedeploy/Techscore.zip"
 
