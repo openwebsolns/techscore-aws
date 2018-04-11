@@ -43,6 +43,10 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
       VpcId: !ImportValue VpcId
       Tags:
         - Key: Name
@@ -95,6 +99,42 @@ Resources:
       Tags:
         - Key: Name
           Value: !Ref OrgHostname
+
+  # Load balancer to redirect traffic to HTTPS: load balancer listens
+  # on port 80, and redirects traffic to the (same) hosts ovre port 80.
+  # Hosts detect initial port and issue redirect to same page over 443
+  # https://aws.amazon.com/premiumsupport/knowledge-center/redirect-http-https-elb/
+  RedirectionLBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref RedirectionLBTargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  RedirectionLBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 10
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: !ImportValue VpcId
+      TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: true
+        - Key: stickiness.type
+          Value: lb_cookie
+        - Key: stickiness.lb_cookie.duration_seconds
+          Value: 30
+      Tags:
+        - Key: Name
+          Value: !Sub '${OrgHostname} - Redirect'
 
   WebServerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
