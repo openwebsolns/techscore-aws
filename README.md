@@ -28,4 +28,4 @@ CLI are included:
   * to create/update any of the above templates
   * to SSH into a webserver instance (SSH deserves its own chapter)
   * to stop the bastion host so as to save money
-  * **to packgae and deploy the application**
+  * **to package and deploy the application**
