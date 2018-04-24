@@ -145,6 +145,7 @@ Resources:
               php54-xml: []
               php54-pdo: []
               php54-process: []
+              php54-gd: []
               git: []
           files:
             '/etc/httpd/conf.d/ows-sites.conf':
