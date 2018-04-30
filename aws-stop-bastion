@@ -2,6 +2,7 @@
 # Stops the bastion host for cost-savings
 
 [[ -n "${verbose:-}" ]] && set -x
+[[ -n "$AWS_PROFILE" ]] || (echo "No AWS_PROFILE setup." && exit 1)
 
 get-cf-export-value() {
     aws cloudformation list-exports --output text --query "Exports[?Name==\`$1\`].Value"

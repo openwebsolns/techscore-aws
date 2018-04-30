@@ -2,6 +2,7 @@
 # Uses AWS magic to SSH to a webserver via a bastion host
 
 [[ -n "${verbose:-}" ]] && set -x
+[[ -n "$AWS_PROFILE" ]] || (echo "No AWS_PROFILE setup." && exit 1)
 
 KEY=${KEY="$HOME/.ssh/id_rsa"}
 PUBLIC_KEY_FILE=${PUBLIC_KEY_FILE:-"$KEY.pub"}
