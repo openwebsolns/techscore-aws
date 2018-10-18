@@ -23,6 +23,8 @@ Resources:
   Scores:
     Type: AWS::S3::Bucket
     Properties:
+      VersioningConfiguration:
+        Status: Enabled
       WebsiteConfiguration:
         ErrorDocument: 404.html
         IndexDocument: index.html
