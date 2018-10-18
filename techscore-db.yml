@@ -74,7 +74,7 @@ Resources:
       DBParameterGroupName: !Ref DBParameterGroup
       PubliclyAccessible: false
       MultiAZ: false
-      DBInstanceClass: db.t2.small
+      DBInstanceClass: db.t2.medium
 
   SqlBackup:
     Type: AWS::S3::Bucket
