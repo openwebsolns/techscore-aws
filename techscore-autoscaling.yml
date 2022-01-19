@@ -32,7 +32,7 @@ Conditions:
 Mappings:
   RegionMap:
     us-west-2:
-      AMI: 'ami-f2d3638a'
+      AMI: 'ami-074d18b2165005fd6'
 
 Resources:
   WebServerAutoScalingGroup:
@@ -62,8 +62,8 @@ Resources:
           Install:
             - CloudInitSetup
             - InstallAuthorizedKeysCommand
-            - CodeDeploy
             - SetupWebServer
+            - CodeDeploy
             - SetupTools
 
         CloudInitSetup:
@@ -147,6 +147,7 @@ Resources:
               php54-process: []
               php54-gd: []
               git: []
+              httpd24: []
           files:
             '/etc/httpd/conf.d/ows-sites.conf':
               content: |
@@ -216,7 +217,7 @@ Resources:
           - Ref: AWS::Region
           - AMI
       IamInstanceProfile: !ImportValue WebServerInstanceProfile
-      InstanceType: t2.medium
+      InstanceType: t3.medium
       KeyName:
         Fn::If:
           - UseKeyPair
@@ -228,7 +229,7 @@ Resources:
         Fn::Base64:
           Fn::Sub: |
             #!/bin/bash -xe
-            yum update -y
+            yum update --security -y
             /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource WebServerLaunchConfig --configsets Install --region ${AWS::Region}
 
 Outputs:
