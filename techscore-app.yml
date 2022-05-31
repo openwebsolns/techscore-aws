@@ -180,6 +180,27 @@ Resources:
       Roles:
         - !Ref WebServerRole
 
+  EmailNotificationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName:
+        Fn::Sub: '${AppSubdomain}-email-notifications'
+
+  EmailNotificationsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+
+  EmailNotificationsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref EmailNotificationsTopic
+      Endpoint: !GetAtt
+        - EmailNotificationsQueue
+        - Arn
+      Protocol: sqs
+      RawMessageDelivery: 'true'
+
 Outputs:
   WebServerSecurityGroup:
     Description: SG for web server(s)
