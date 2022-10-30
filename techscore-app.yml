@@ -185,21 +185,33 @@ Resources:
     Properties:
       TopicName:
         Fn::Sub: '${AppSubdomain}-email-notifications'
+      Subscription:
+        - Protocol: sqs
+          Endpoint: !GetAtt
+            - EmailNotificationsQueue
+            - Arn
 
   EmailNotificationsQueue:
     Type: AWS::SQS::Queue
     Properties:
       MessageRetentionPeriod: 1209600
 
-  EmailNotificationsSubscription:
-    Type: AWS::SNS::Subscription
+  EmailNotificationsQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
     Properties:
-      TopicArn: !Ref EmailNotificationsTopic
-      Endpoint: !GetAtt
-        - EmailNotificationsQueue
-        - Arn
-      Protocol: sqs
-      RawMessageDelivery: 'true'
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: ['sqs:SendMessage']
+            Resource: '*'
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref EmailNotificationsTopic
+
+      Queues:
+        - Ref: EmailNotificationsQueue
 
 Outputs:
   WebServerSecurityGroup:
