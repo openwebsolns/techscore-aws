@@ -32,7 +32,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
-          SourceSecurityGroupId: !ImportValue WebServerSecurityGroup
+          CidrIp: 10.0.0.0/21
       VpcId: !ImportValue VpcId
       Tags:
         - Key: Name
@@ -54,6 +54,7 @@ Resources:
       Engine: aurora-mysql
       DBClusterParameterGroupName: default.aurora-mysql5.7
       DBSubnetGroupName: !Ref DBSubnetGroup
+      BackupRetentionPeriod: 35
       VpcSecurityGroupIds:
         - Ref: DBEC2SecurityGroup
 
