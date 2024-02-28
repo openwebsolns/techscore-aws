@@ -7,7 +7,7 @@ usage() {
     exit 1
 }
 
-CONFIG=cloudformation.config
+CONFIG=stacks/cloudformation.config
 
 [[ -n "$verbose" ]] && set -x
 [[ -n "$AWS_PROFILE" ]] || usage "No AWS_PROFILE setup."
@@ -91,7 +91,7 @@ execute() {
     aws ${AWS_ARGS[@]} \
         cloudformation $(cloudformation-verb $1) \
         --stack-name $1 \
-        --template-body file://techscore-$1.yml \
+        --template-body file://stacks/techscore-$1.yml \
         ${PARAMS[@]}
 }
 
