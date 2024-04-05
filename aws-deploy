@@ -1,39 +1,46 @@
-#!/bin/bash
+#!/bin/bash -e
 
 [[ -n "$verbose" ]] && set -x
-[[ -n "$AWS_PROFILE" ]] || (echo "No AWS_PROFILE setup." && exit 1)
 
-APP_KEY="codedeploy/Techscore.zip"
-APP_BUCKET=
+fail() {
+    [[ -n "$2" ]] && echo -e "ERROR: $2\n"
+    echo "usage: AWS_PROFILE=... CODE_VERSION=... $0"
+    exit ${1:-1}
+}
+[[ -n "$AWS_PROFILE" ]] || fail 1 "No AWS_PROFILE setup."
+[[ -n "$CODE_VERSION" ]] || fail 2 "No CODE_VERSION provided, e.g. '3.6.3'"
 
 get-cf-export-value() {
     aws cloudformation list-exports --output text --query "Exports[?Name==\`$1\`].Value"
 }
 
-get-app-name() {
-    get-cf-export-value CodeDeployApp
-}
-
-get-deployment-group() {
-    get-cf-export-value CodeDeploymentGroup
-}
-
-get-code-bucket() {
-    if [[ -z "$APP_BUCKET" ]]; then
-        APP_BUCKET=$(get-cf-export-value CodeBucket)
-    fi
-    echo $APP_BUCKET
-}
+APP_NAME=$(get-cf-export-value CodeDeployApp)
+APP_BUCKET=$(get-cf-export-value CodeBucket)
+APP_KEY="codedeploy/Techscore-${CODE_VERSION}.zip"
+DEPLOYMENT_GROUP=$(get-cf-export-value CodeDeploymentGroup)
 
 get-md5sum() {
-    aws s3api head-object --bucket $(get-code-bucket) --key $APP_KEY --output text --query ETag | tr -d '"'
+    aws s3api head-object --bucket ${APP_BUCKET} --key $APP_KEY --output text --query ETag | tr -d '"'
 }
 
-execute() {
+get-my-dir() {
+    cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd
+}
+
+push() {
+    aws deploy push \
+        --application-name=${APP_NAME} \
+        --s3-location s3://${APP_BUCKET}/${APP_KEY} \
+        --source "$(get-my-dir)/techscore" \
+        --ignore-hidden-files
+}
+
+deploy() {
     aws deploy create-deployment \
-        --application-name $(get-app-name) \
-        --s3-location bucket=$(get-code-bucket),key=$APP_KEY,bundleType=zip,eTag=$(get-md5sum) \
-        --deployment-group-name $(get-deployment-group)
+        --application-name ${APP_NAME} \
+        --s3-location bucket=${APP_BUCKET},key=${APP_KEY},bundleType=zip,eTag=$(get-md5sum) \
+        --deployment-group-name ${DEPLOYMENT_GROUP}
 }
 
-execute
+push
+deploy
