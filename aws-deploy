@@ -23,15 +23,11 @@ get-md5sum() {
     aws s3api head-object --bucket ${APP_BUCKET} --key $APP_KEY --output text --query ETag | tr -d '"'
 }
 
-get-my-dir() {
-    cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd
-}
-
 push() {
     aws deploy push \
         --application-name=${APP_NAME} \
         --s3-location s3://${APP_BUCKET}/${APP_KEY} \
-        --source "$(get-my-dir)/techscore" \
+        --source ./techscore \
         --ignore-hidden-files
 }
 
@@ -39,6 +35,7 @@ deploy() {
     aws deploy create-deployment \
         --application-name ${APP_NAME} \
         --s3-location bucket=${APP_BUCKET},key=${APP_KEY},bundleType=zip,eTag=$(get-md5sum) \
+        --file-exists-behavior OVERWRITE \
         --deployment-group-name ${DEPLOYMENT_GROUP}
 }
 
