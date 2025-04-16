@@ -85,6 +85,8 @@ Resources:
       HealthCheckIntervalSeconds: 10
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
+      Matcher:
+        HttpCode: '403'
       Port: 80
       Protocol: HTTP
       UnhealthyThresholdCount: 5
