@@ -94,14 +94,14 @@ Resources:
         SetupWebServer:
           packages:
             yum:
-              php54: []
-              php54-mysqlnd: []
-              php54-mbstring: []
-              php54-common: []
-              php54-cli: []
-              php54-xml: []
-              php54-pdo: []
-              php54-process: []
+              php73: []
+              php73-mysqlnd: []
+              php73-mbstring: []
+              php73-common: []
+              php73-cli: []
+              php73-xml: []
+              php73-pdo: []
+              php73-process: []
               git: []
           files:
             '/etc/httpd/conf.d/ows-sites.conf':
