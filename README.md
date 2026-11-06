@@ -1,5 +1,12 @@
 # Techscore on AWS
 
+## Deprecation notice
+
+AWS infrastructure to deploy Techscore is now tracked via CDK in the Techscore
+project itself.
+
+## Summary
+
 Mostly a CloudFormation template to generate the Techscore application, including:
 
   * Scores bucket (easy one)
